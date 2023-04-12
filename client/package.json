@@ -1,0 +1,22 @@
+{
+  "name": "anonymous-authentication-spike-client",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && npm run build:cp-public",
+    "build:cp-public": "cp ./public/** ./dist",
+    "type": "tsc --noEmit",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "typescript": "^5.0.4"
+  },
+  "devDependencies": {
+    "vite": "^4.2.1"
+  }
+}
