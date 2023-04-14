@@ -9,11 +9,13 @@ import { serverAddress, port, secretKey, userDBFileName } from './config';
 const fs = require('fs');
 const app = express();
 
-// app.use(cors({ origin: serverAddress, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
 const ANONYUSER_NAME = 'Anony User';
+
+// In-memory storage for anonymous user IDs
+const anonymousUserMap = new Map<string, boolean>();
 
 fs.access(userDBFileName, fs.constants.F_OK, (err: any) => {
   if (err) {
@@ -29,11 +31,10 @@ fs.access(userDBFileName, fs.constants.F_OK, (err: any) => {
   }
 })
 
-
 // Allow requests from all origins
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin!!);
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   next();
@@ -41,8 +42,8 @@ app.use((req, res, next) => {
 
 app.post('/api/auth/anonymous', (req, res) => {
   // Check if the client sent a token cookie
-  let token = req.headers.authorization;
-  console.log('-------- token: ', token)
+  const tokenCookie = req.cookies.anonymousToken;
+  console.log('-------- token cookie: ', tokenCookie)
 
   const anonymousUserMap = new Map<string, boolean>();
 
@@ -60,16 +61,17 @@ app.post('/api/auth/anonymous', (req, res) => {
     console.log('-------- cannot read the user database file -------- ')
   }
 
-  if (token) {
+  if (tokenCookie) {
     try {
+      
       // Verify the existing token and extract the anonymous user ID
-      const verifyToken: PAYLOAD = jwt.verify(token, secretKey) as PAYLOAD;
+      const verifyToken: PAYLOAD = jwt.verify(tokenCookie, secretKey) as PAYLOAD;
 
       // Check if the anonymous user ID is stored on the server-side
       if (anonymousUserMap.has(verifyToken.anonymousUserId)) {
         return res.json({ 
           success: true,
-          message: "Welcome back!"
+          message: "Welcome back!" 
         });
       }
     } catch (err) {
@@ -79,7 +81,6 @@ app.post('/api/auth/anonymous', (req, res) => {
 
   // Generate a unique anonymous user ID
   const anonymousUserId = uuidv4();
-  console.log('------ anonymous user id: ', anonymousUserId)
 
   // Store the anonymous user ID on the server-side
   anonymousUserMap.set(anonymousUserId, true);
@@ -95,15 +96,21 @@ app.post('/api/auth/anonymous', (req, res) => {
   const payload: PAYLOAD = {
     anonymousUserId: anonymousUserId
   }
-
   // Generate a JWT token with the anonymous user ID as the payload
-  token = jwt.sign(payload, secretKey);
+  const token = jwt.sign(payload, secretKey);
+
+  // Set a token cookie that expires in 7 days
+  res.cookie("anonymousToken", token, { 
+    // secure: true,   // Set to true for HTTPS
+    httpOnly: true,
+    maxAge: 30 * 365 * 24 * 60 * 60 * 1000, 
+  });
 
   // Send a welcome message to the client
   res.json({ 
     success: true,
     message: "Welcome!",
-    anonymousToken: token
+    anonymousToken: token,
   });
 });
 
